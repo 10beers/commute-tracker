@@ -28,7 +28,7 @@
             <div class="flex gap-2">
                 <button onclick="toggleTracking()" id="trackBtn" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Start Tracking</button>
                 <button onclick="saveSettings()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-full font-bold hover:bg-gray-300">Save Settings</button>
-            </div>
+            <button onclick="clearLogs()" class="bg-red-100 text-red-700 px-6 py-2 rounded-full font-bold hover:bg-red-200 text-sm">Clear Logs</button></div>
             
             <div class="grid grid-cols-2 gap-4 pt-4 border-t">
                 <div>
@@ -42,6 +42,12 @@
             </div>
 
             <div id="results" class="mt-4 space-y-2"></div>
+            <div class="mt-8 border-t pt-4">
+    <h2 class="text-lg font-bold mb-2">Commute History</h2>
+    <div id="historyLog" class="space-y-2 text-sm">
+        <p class="text-gray-400 italic">No logs yet...</p>
+    </div>
+</div>
         </div>
     </div>
 
@@ -54,6 +60,7 @@
             if(localStorage.getItem('commute_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('commute_apiKey');
             if(localStorage.getItem('commute_dest')) document.getElementById('destination').value = localStorage.getItem('commute_dest');
             if(localStorage.getItem('commute_origins')) document.getElementById('origins').value = localStorage.getItem('commute_origins');
+            if(localStorage.getItem('commute_history')) document.getElementById('historyLog').innerHTML = localStorage.getItem('commute_history');
         };
 
         function loadGoogleLibrary(key) {
@@ -82,42 +89,65 @@
             return (hour >= 5 && hour <= 8.5) || (hour >= 15.5 && hour <= 18.5);
         }
 
-        async function fetchData() {
-            if (!isWithinWindow()) {
-                document.getElementById('statusText').innerText = "Outside Window - Sleeping";
-                return;
-            }
+       async function fetchData() {
+    if (!isWithinWindow()) {
+        document.getElementById('statusText').innerText = "Outside Window - Sleeping";
+        return;
+    }
 
-            const key = document.getElementById('apiKey').value;
-            const dest = document.getElementById('destination').value;
-            const originsList = document.getElementById('origins').value.split('\n').filter(o => o.trim() !== "");
-            
-            await loadGoogleLibrary(key);
-            document.getElementById('statusText').innerText = "Updating...";
+    const key = document.getElementById('apiKey').value;
+    const dest = document.getElementById('destination').value;
+    const originsList = document.getElementById('origins').value.split('\n').filter(o => o.trim() !== "");
+    
+    await loadGoogleLibrary(key);
+    document.getElementById('statusText').innerText = "Updating...";
 
-            const service = new google.maps.DistanceMatrixService();
-            service.getDistanceMatrix({
-                origins: originsList,
-                destinations: [dest],
-                travelMode: 'DRIVING',
-                drivingOptions: { departureTime: new Date(), trafficModel: 'bestguess' }
-            }, (response, status) => {
-                if (status === 'OK') {
-                    let html = "";
-                    response.rows.forEach((row, i) => {
-                        const element = row.elements[0];
-                        const time = element.duration_in_traffic ? element.duration_in_traffic.text : element.duration.text;
-                        html += `<div class="flex justify-between border-b py-1"><span>${originsList[i]}</span><span class="font-mono">${time}</span></div>`;
-                    });
-                    document.getElementById('results').innerHTML = html;
-                    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
-                    document.getElementById('statusText').innerText = "Active - Monitoring";
-                } else {
-                    document.getElementById('statusText').innerText = "Error: " + status;
-                }
+    const service = new google.maps.DistanceMatrixService();
+    service.getDistanceMatrix({
+        origins: originsList,
+        destinations: [dest],
+        travelMode: 'DRIVING',
+        drivingOptions: { departureTime: new Date(), trafficModel: 'bestguess' }
+    }, (response, status) => {
+        if (status === 'OK') {
+            const timeStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let currentHtml = "";
+            let historySnippet = `<div class="bg-gray-50 p-2 rounded border-l-4 border-blue-500 mb-2">
+                                    <div class="font-bold text-blue-800">${timeStamp}</div>`;
+
+            response.rows.forEach((row, i) => {
+                const element = row.elements[0];
+                const time = element.duration_in_traffic ? element.duration_in_traffic.text : element.duration.text;
+                
+                currentHtml += `<div class="flex justify-between border-b py-1"><span>${originsList[i]}</span><span class="font-mono">${time}</span></div>`;
+                historySnippet += `<div class="flex justify-between text-xs"><span>${originsList[i]}</span><span>${time}</span></div>`;
             });
-        }
 
+            historySnippet += `</div>`;
+
+            // Update Current View
+            document.getElementById('results').innerHTML = currentHtml;
+            document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+            document.getElementById('statusText').innerText = "Active - Monitoring";
+
+            // Add to History and Save
+            const logContainer = document.getElementById('historyLog');
+            if (logContainer.innerHTML.includes("No logs yet")) logContainer.innerHTML = "";
+            logContainer.innerHTML = historySnippet + logContainer.innerHTML;
+            localStorage.setItem('commute_history', logContainer.innerHTML);
+
+        } else {
+            document.getElementById('statusText').innerText = "Error: " + status;
+        }
+    });
+}
+        function clearLogs() {
+    if(confirm("Clear all commute history?")) {
+        localStorage.removeItem('commute_history');
+        document.getElementById('historyLog').innerHTML = '<p class="text-gray-400 italic">No logs yet...</p>';
+    }
+}
+}
         function toggleTracking() {
             isTracking = !isTracking;
             const btn = document.getElementById('trackBtn');
