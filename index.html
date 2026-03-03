@@ -80,6 +80,7 @@
                 };
                 document.head.appendChild(script);
             });
+        updateTrends();
         }
 
         function saveSettings() {
@@ -141,6 +142,7 @@
             if (logContainer.innerHTML.includes("No logs yet")) logContainer.innerHTML = "";
             logContainer.innerHTML = historySnippet + logContainer.innerHTML;
             localStorage.setItem('commute_history', logContainer.innerHTML);
+            updateTrends();
 
         } else {
             document.getElementById('statusText').innerText = "Error: " + status;
