@@ -82,7 +82,7 @@
             document.getElementById('statusText').innerText = "Updating...";
             
             try {
-                const response = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins.join('|'))}&destinations=${encodeURIComponent(dest)}&key=${key}`);
+                const response = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins.join('|'))}&destinations=${encodeURIComponent(dest)}&key=${key}`, { mode: 'no-cors' });
                 const data = await response.json();
                 
                 let html = "";
