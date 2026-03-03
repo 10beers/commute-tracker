@@ -9,7 +9,7 @@
 <body class="bg-gray-100 p-8">
     <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-md">
         <h1 class="text-2xl font-bold mb-2">Commute Tracker</h1>
-        <p class="text-sm text-gray-500 mb-6">Auto-save enabled. Checking every 30 mins during commute windows.</p>
+        <p class="text-sm text-gray-500 mb-6">Using Google JS Library. Checking every 30 mins during commute windows.</p>
         
         <div class="space-y-4">
             <div>
@@ -48,19 +48,32 @@
     <script>
         let isTracking = false;
         let timer = null;
+        let googleLibLoaded = false;
 
-        // Load saved settings on startup
         window.onload = () => {
             if(localStorage.getItem('commute_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('commute_apiKey');
             if(localStorage.getItem('commute_dest')) document.getElementById('destination').value = localStorage.getItem('commute_dest');
             if(localStorage.getItem('commute_origins')) document.getElementById('origins').value = localStorage.getItem('commute_origins');
         };
 
+        function loadGoogleLibrary(key) {
+            if (googleLibLoaded) return Promise.resolve();
+            return new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry`;
+                script.onload = () => {
+                    googleLibLoaded = true;
+                    resolve();
+                };
+                document.head.appendChild(script);
+            });
+        }
+
         function saveSettings() {
             localStorage.setItem('commute_apiKey', document.getElementById('apiKey').value);
             localStorage.setItem('commute_dest', document.getElementById('destination').value);
             localStorage.setItem('commute_origins', document.getElementById('origins').value);
-            alert("Settings saved to this browser!");
+            alert("Settings saved!");
         }
 
         function isWithinWindow() {
@@ -77,34 +90,39 @@
 
             const key = document.getElementById('apiKey').value;
             const dest = document.getElementById('destination').value;
-            const origins = document.getElementById('origins').value.split('\n').filter(o => o.trim() !== "");
+            const originsList = document.getElementById('origins').value.split('\n').filter(o => o.trim() !== "");
             
+            await loadGoogleLibrary(key);
             document.getElementById('statusText').innerText = "Updating...";
-            
-            try {
-                const response = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins.join('|'))}&destinations=${encodeURIComponent(dest)}&key=${key}`, { mode: 'no-cors' });
-                const data = await response.json();
-                
-                let html = "";
-                data.rows.forEach((row, i) => {
-                    const time = row.elements[0].duration.text;
-                    html += `<div class="flex justify-between border-b py-1"><span>${origins[i]}</span><span class="font-mono">${time}</span></div>`;
-                });
-                
-                document.getElementById('results').innerHTML = html;
-                document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
-                document.getElementById('statusText').innerText = "Active - Monitoring";
-            } catch (e) {
-                document.getElementById('statusText').innerText = "Error - Check API Key";
-            }
+
+            const service = new google.maps.DistanceMatrixService();
+            service.getDistanceMatrix({
+                origins: originsList,
+                destinations: [dest],
+                travelMode: 'DRIVING',
+                drivingOptions: { departureTime: new Date(), trafficModel: 'bestguess' }
+            }, (response, status) => {
+                if (status === 'OK') {
+                    let html = "";
+                    response.rows.forEach((row, i) => {
+                        const element = row.elements[0];
+                        const time = element.duration_in_traffic ? element.duration_in_traffic.text : element.duration.text;
+                        html += `<div class="flex justify-between border-b py-1"><span>${originsList[i]}</span><span class="font-mono">${time}</span></div>`;
+                    });
+                    document.getElementById('results').innerHTML = html;
+                    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+                    document.getElementById('statusText').innerText = "Active - Monitoring";
+                } else {
+                    document.getElementById('statusText').innerText = "Error: " + status;
+                }
+            });
         }
 
         function toggleTracking() {
             isTracking = !isTracking;
             const btn = document.getElementById('trackBtn');
-            
             if (isTracking) {
-                saveSettings(); // Auto-save when you start
+                saveSettings();
                 btn.innerText = "Stop Tracking";
                 btn.className = "bg-red-600 text-white px-6 py-2 rounded-full font-bold";
                 fetchData();
