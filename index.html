@@ -9,7 +9,7 @@
 <body class="bg-gray-100 p-8">
     <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-md">
         <h1 class="text-2xl font-bold mb-2">Commute Tracker</h1>
-        <p class="text-sm text-gray-500 mb-6">Checking every 30 mins: 05:00-08:30 & 15:30-18:30</p>
+        <p class="text-sm text-gray-500 mb-6">Auto-save enabled. Checking every 30 mins during commute windows.</p>
         
         <div class="space-y-4">
             <div>
@@ -18,13 +18,17 @@
             </div>
             <div>
                 <label class="block text-sm font-medium">Destination</label>
-                <input type="text" id="destination" class="w-full p-2 border rounded" value="1600 Amphitheatre Pkwy, Mountain View, CA">
+                <input type="text" id="destination" class="w-full p-2 border rounded">
             </div>
             <div>
                 <label class="block text-sm font-medium">Origins (one per line)</label>
-                <textarea id="origins" class="w-full p-2 border rounded" rows="3">San Jose, CA&#10;San Francisco, CA&#10;Oakland, CA</textarea>
+                <textarea id="origins" class="w-full p-2 border rounded" rows="3"></textarea>
             </div>
-            <button onclick="toggleTracking()" id="trackBtn" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Start Tracking</button>
+            
+            <div class="flex gap-2">
+                <button onclick="toggleTracking()" id="trackBtn" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Start Tracking</button>
+                <button onclick="saveSettings()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-full font-bold hover:bg-gray-300">Save Settings</button>
+            </div>
             
             <div class="grid grid-cols-2 gap-4 pt-4 border-t">
                 <div>
@@ -44,6 +48,20 @@
     <script>
         let isTracking = false;
         let timer = null;
+
+        // Load saved settings on startup
+        window.onload = () => {
+            if(localStorage.getItem('commute_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('commute_apiKey');
+            if(localStorage.getItem('commute_dest')) document.getElementById('destination').value = localStorage.getItem('commute_dest');
+            if(localStorage.getItem('commute_origins')) document.getElementById('origins').value = localStorage.getItem('commute_origins');
+        };
+
+        function saveSettings() {
+            localStorage.setItem('commute_apiKey', document.getElementById('apiKey').value);
+            localStorage.setItem('commute_dest', document.getElementById('destination').value);
+            localStorage.setItem('commute_origins', document.getElementById('origins').value);
+            alert("Settings saved to this browser!");
+        }
 
         function isWithinWindow() {
             const now = new Date();
@@ -86,10 +104,11 @@
             const btn = document.getElementById('trackBtn');
             
             if (isTracking) {
+                saveSettings(); // Auto-save when you start
                 btn.innerText = "Stop Tracking";
                 btn.className = "bg-red-600 text-white px-6 py-2 rounded-full font-bold";
                 fetchData();
-                timer = setInterval(fetchData, 30 * 60 * 1000); // 30 mins
+                timer = setInterval(fetchData, 30 * 60 * 1000); 
             } else {
                 btn.innerText = "Start Tracking";
                 btn.className = "bg-blue-600 text-white px-6 py-2 rounded-full font-bold";
