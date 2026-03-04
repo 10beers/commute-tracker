@@ -9,7 +9,7 @@
 <body class="bg-gray-100 p-8">
     <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-md">
         <h1 class="text-2xl font-bold mb-2">Commute Tracker</h1>
-        <p class="text-sm text-gray-500 mb-6">Using Google JS Library. Checking every 30 mins during commute windows.</p>
+        <p class="text-sm text-gray-500 mb-6">7-Day Trends Enabled. Checking every 30 mins during commute windows.</p>
         
         <div class="space-y-4">
             <div>
@@ -28,7 +28,8 @@
             <div class="flex gap-2">
                 <button onclick="toggleTracking()" id="trackBtn" class="bg-blue-600 text-white px-6 py-2 rounded-full font-bold">Start Tracking</button>
                 <button onclick="saveSettings()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-full font-bold hover:bg-gray-300">Save Settings</button>
-            <button onclick="clearLogs()" class="bg-red-100 text-red-700 px-6 py-2 rounded-full font-bold hover:bg-red-200 text-sm">Clear Logs</button></div>
+                <button onclick="clearLogs()" class="bg-red-100 text-red-700 px-6 py-2 rounded-full font-bold hover:bg-red-200 text-sm">Clear Logs</button>
+            </div>
             
             <div class="grid grid-cols-2 gap-4 pt-4 border-t">
                 <div>
@@ -42,18 +43,20 @@
             </div>
 
             <div id="results" class="mt-4 space-y-2"></div>
+
             <div class="mt-8 border-t pt-4">
-    <h2 class="text-lg font-bold mb-2">Commute History</h2>
-                <div class="mt-8 border-t pt-4">
-    <h2 class="text-lg font-bold mb-2 text-blue-900">7-Day Insights</h2>
-    <div id="statsDashboard" class="grid grid-cols-1 gap-3 mb-4">
-        <p class="text-gray-400 italic text-sm">Waiting for more data to calculate trends...</p>
-    </div>
-</div>
-    <div id="historyLog" class="space-y-2 text-sm">
-        <p class="text-gray-400 italic">No logs yet...</p>
-    </div>
-</div>
+                <h2 class="text-lg font-bold mb-2 text-blue-900">7-Day Insights</h2>
+                <div id="statsDashboard" class="grid grid-cols-1 gap-3 mb-4">
+                    <p class="text-gray-400 italic text-sm">Waiting for data...</p>
+                </div>
+            </div>
+
+            <div class="mt-8 border-t pt-4">
+                <h2 class="text-lg font-bold mb-2">Commute History</h2>
+                <div id="historyLog" class="space-y-2 text-sm">
+                    <p class="text-gray-400 italic">No logs yet...</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -66,7 +69,10 @@
             if(localStorage.getItem('commute_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('commute_apiKey');
             if(localStorage.getItem('commute_dest')) document.getElementById('destination').value = localStorage.getItem('commute_dest');
             if(localStorage.getItem('commute_origins')) document.getElementById('origins').value = localStorage.getItem('commute_origins');
-            if(localStorage.getItem('commute_history')) document.getElementById('historyLog').innerHTML = localStorage.getItem('commute_history');
+            if(localStorage.getItem('commute_history')) {
+                document.getElementById('historyLog').innerHTML = localStorage.getItem('commute_history');
+                updateTrends();
+            }
         };
 
         function loadGoogleLibrary(key) {
@@ -76,12 +82,10 @@
                 script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry`;
                 script.onload = () => {
                     googleLibLoaded = true;
-                     updateTrends();
                     resolve();
                 };
                 document.head.appendChild(script);
             });
-       
         }
 
         function saveSettings() {
@@ -97,66 +101,63 @@
             return (hour >= 5 && hour <= 8.5) || (hour >= 15.5 && hour <= 18.5);
         }
 
-       async function fetchData() {
-    if (!isWithinWindow()) {
-        document.getElementById('statusText').innerText = "Outside Window - Sleeping";
-        return;
-    }
+        async function fetchData() {
+            if (!isWithinWindow()) {
+                document.getElementById('statusText').innerText = "Outside Window - Sleeping";
+                return;
+            }
 
-    const key = document.getElementById('apiKey').value;
-    const dest = document.getElementById('destination').value;
-    const originsList = document.getElementById('origins').value.split('\n').filter(o => o.trim() !== "");
-    
-    await loadGoogleLibrary(key);
-    document.getElementById('statusText').innerText = "Updating...";
+            const key = document.getElementById('apiKey').value;
+            const dest = document.getElementById('destination').value;
+            const originsList = document.getElementById('origins').value.split('\n').filter(o => o.trim() !== "");
+            
+            await loadGoogleLibrary(key);
+            document.getElementById('statusText').innerText = "Updating...";
 
-    const service = new google.maps.DistanceMatrixService();
-    service.getDistanceMatrix({
-        origins: originsList,
-        destinations: [dest],
-        travelMode: 'DRIVING',
-        drivingOptions: { departureTime: new Date(), trafficModel: 'bestguess' }
-    }, (response, status) => {
-        if (status === 'OK') {
-            const timeStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            let currentHtml = "";
-            let historySnippet = `<div class="bg-gray-50 p-2 rounded border-l-4 border-blue-500 mb-2">
-                                    <div class="font-bold text-blue-800">${timeStamp}</div>`;
+            const service = new google.maps.DistanceMatrixService();
+            service.getDistanceMatrix({
+                origins: originsList,
+                destinations: [dest],
+                travelMode: 'DRIVING',
+                drivingOptions: { departureTime: new Date(), trafficModel: 'bestguess' }
+            }, (response, status) => {
+                if (status === 'OK') {
+                    const timeStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    let currentHtml = "";
+                    let historySnippet = `<div class="bg-gray-50 p-2 rounded border-l-4 border-blue-500 mb-2">
+                                            <div class="font-bold text-blue-800">${timeStamp}</div>`;
 
-            response.rows.forEach((row, i) => {
-                const element = row.elements[0];
-                const time = element.duration_in_traffic ? element.duration_in_traffic.text : element.duration.text;
-                
-                currentHtml += `<div class="flex justify-between border-b py-1"><span>${originsList[i]}</span><span class="font-mono">${time}</span></div>`;
-                historySnippet += `<div class="flex justify-between text-xs"><span>${originsList[i]}</span><span>${time}</span></div>`;
+                    response.rows.forEach((row, i) => {
+                        const element = row.elements[0];
+                        const time = element.duration_in_traffic ? element.duration_in_traffic.text : element.duration.text;
+                        currentHtml += `<div class="flex justify-between border-b py-1"><span>${originsList[i]}</span><span class="font-mono">${time}</span></div>`;
+                        historySnippet += `<div class="flex justify-between text-xs"><span>${originsList[i]}</span><span>${time}</span></div>`;
+                    });
+
+                    historySnippet += `</div>`;
+                    document.getElementById('results').innerHTML = currentHtml;
+                    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+                    document.getElementById('statusText').innerText = "Active - Monitoring";
+
+                    const logContainer = document.getElementById('historyLog');
+                    if (logContainer.innerHTML.includes("No logs yet")) logContainer.innerHTML = "";
+                    logContainer.innerHTML = historySnippet + logContainer.innerHTML;
+                    localStorage.setItem('commute_history', logContainer.innerHTML);
+                    updateTrends();
+                } else {
+                    document.getElementById('statusText').innerText = "Error: " + status;
+                }
             });
-
-            historySnippet += `</div>`;
-
-            // Update Current View
-            document.getElementById('results').innerHTML = currentHtml;
-            document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
-            document.getElementById('statusText').innerText = "Active - Monitoring";
-
-            // Add to History and Save
-            const logContainer = document.getElementById('historyLog');
-            if (logContainer.innerHTML.includes("No logs yet")) logContainer.innerHTML = "";
-            logContainer.innerHTML = historySnippet + logContainer.innerHTML;
-            localStorage.setItem('commute_history', logContainer.innerHTML);
-            updateTrends();
-
-        } else {
-            document.getElementById('statusText').innerText = "Error: " + status;
         }
-    });
-}
-        function clearLogs() {
-    if(confirm("Clear all commute history?")) {
-        localStorage.removeItem('commute_history');
-        document.getElementById('historyLog').innerHTML = '<p class="text-gray-400 italic">No logs yet...</p>';
-    }
 
-}
+        function clearLogs() {
+            if(confirm("Clear all commute history?")) {
+                localStorage.removeItem('commute_history');
+                document.getElementById('historyLog').innerHTML = '<p class="text-gray-400 italic">No logs yet...</p>';
+                document.getElementById('statsDashboard').innerHTML = '<p class="text-gray-400 italic text-sm">Waiting for data...</p>';
+            }
+        }
+
         function toggleTracking() {
             isTracking = !isTracking;
             const btn = document.getElementById('trackBtn');
@@ -172,45 +173,45 @@
                 clearInterval(timer);
                 document.getElementById('statusText').innerText = "Idle";
             }
-        function updateTrends()  }
-       {
-    const historyContainer = document.getElementById('historyLog');
-    const logs = historyContainer.querySelectorAll('.bg-gray-50');
-    if (logs.length < 2) return;
+        }
 
-    let stats = {};
+        function updateTrends() {
+            const historyContainer = document.getElementById('historyLog');
+            const logs = historyContainer.querySelectorAll('.bg-gray-50');
+            if (logs.length < 1) return;
 
-    logs.forEach(log => {
-        const rows = log.querySelectorAll('.flex.justify-between.text-xs');
-        rows.forEach(row => {
-            const name = row.children[0].innerText;
-            const timeMatch = row.children[1].innerText.match(/\d+/);
-            if (timeMatch) {
-                const mins = parseInt(timeMatch[0]);
-                if (!stats[name]) stats[name] = { min: mins, max: mins };
-                stats[name].min = Math.min(stats[name].min, mins);
-                stats[name].max = Math.max(stats[name].max, mins);
+            let stats = {};
+            logs.forEach(log => {
+                const rows = log.querySelectorAll('.flex.justify-between.text-xs');
+                rows.forEach(row => {
+                    const name = row.children[0].innerText;
+                    const timeMatch = row.children[1].innerText.match(/\d+/);
+                    if (timeMatch) {
+                        const mins = parseInt(timeMatch[0]);
+                        if (!stats[name]) stats[name] = { min: mins, max: mins };
+                        stats[name].min = Math.min(stats[name].min, mins);
+                        stats[name].max = Math.max(stats[name].max, mins);
+                    }
+                });
+            });
+
+            let statsHtml = "";
+            for (const [name, val] of Object.entries(stats)) {
+                statsHtml += `
+                    <div class="bg-white border rounded-lg p-3 shadow-sm">
+                        <div class="text-sm font-bold text-gray-700 border-b mb-2">${name}</div>
+                        <div class="flex justify-between text-xs text-green-600">
+                            <span>Best (Fastest)</span>
+                            <span class="font-bold">${val.min} mins</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-red-600">
+                            <span>Worst (Slowest)</span>
+                            <span class="font-bold">${val.max} mins</span>
+                        </div>
+                    </div>`;
             }
-        });
-    });
-
-    let statsHtml = "";
-    for (const [name, val] of Object.entries(stats)) {
-        statsHtml += `
-            <div class="bg-white border rounded-lg p-3 shadow-sm">
-                <div class="text-sm font-bold text-gray-700 border-b mb-2">${name}</div>
-                <div class="flex justify-between text-xs text-green-600">
-                    <span>Best (Fastest)</span>
-                    <span class="font-bold">${val.min} mins</span>
-                </div>
-                <div class="flex justify-between text-xs text-red-600">
-                    <span>Worst (Slowest)</span>
-                    <span class="font-bold">${val.max} mins</span>
-                </div>
-            </div>`;
-    }
-    document.getElementById('statsDashboard').innerHTML = statsHtml;
-}
+            document.getElementById('statsDashboard').innerHTML = statsHtml;
+        }
     </script>
 </body>
 </html>
