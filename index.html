@@ -76,11 +76,12 @@
                 script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=geometry`;
                 script.onload = () => {
                     googleLibLoaded = true;
+                     updateTrends();
                     resolve();
                 };
                 document.head.appendChild(script);
             });
-        updateTrends();
+       
         }
 
         function saveSettings() {
@@ -154,7 +155,7 @@
         localStorage.removeItem('commute_history');
         document.getElementById('historyLog').innerHTML = '<p class="text-gray-400 italic">No logs yet...</p>';
     }
-}
+
 }
         function toggleTracking() {
             isTracking = !isTracking;
@@ -171,8 +172,8 @@
                 clearInterval(timer);
                 document.getElementById('statusText').innerText = "Idle";
             }
-        }
-        function updateTrends() {
+        function updateTrends()  }
+       {
     const historyContainer = document.getElementById('historyLog');
     const logs = historyContainer.querySelectorAll('.bg-gray-50');
     if (logs.length < 2) return;
